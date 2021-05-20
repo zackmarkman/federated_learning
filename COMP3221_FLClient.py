@@ -1,25 +1,26 @@
+import copy
+import json
+import os
+import pickle
+import random
 import sys
 import socket
-import pickle
-
+import threading
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import os
-import json
-import copy
 from torch.utils.data import DataLoader
 
-IP = "127.0.0.1"
-PORT_SERVER = 6000
 CLIENT_ID = sys.argv[1]
 PORT_CLIENT = int(sys.argv[2])
 OPT_FLAG = int(sys.argv[3])
+IP = "127.0.0.1"
+PORT_SERVER = 6000
 
-# Tunable parameters
+# Tuneable parameters
 learning_rate = 0.01
 batch_size = 20
-
 
 
 def get_data(id=""):
@@ -58,6 +59,7 @@ class MCLR(nn.Module):
 
 class Client():
     def __init__(self, client_id, model, learning_rate, batch_size):
+        # load data
         self.X_train, self.y_train, self.X_test, self.y_test, self.train_samples, self.test_samples = get_data(
             client_id)
         self.train_data = [(x, y) for x, y in zip(self.X_train, self.y_train)]
@@ -99,6 +101,7 @@ class Client():
         return
 
     def run(self):
+        # connect to server
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((IP, PORT_SERVER))
             message = (CLIENT_ID, self.train_samples)
