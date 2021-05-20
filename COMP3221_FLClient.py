@@ -109,3 +109,4 @@ class Client():
             s.sendall(mess)
             while (True):
                 data_recv = s.recv(65536)
+

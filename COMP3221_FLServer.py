@@ -29,6 +29,16 @@ class MCLR(nn.Module):
         output = F.log_softmax(x, dim=1)
         return output
 
+class ClientThread(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+    def run(self):
+        pass
+
+    def stop(self):
+        self._stop.set()
+
+
 
 class Server():
     def __init__(self, *args):
@@ -72,19 +82,18 @@ class Server():
                 glob_send = pickle.dumps(global_model) # byte stream
 
                 for client in self.clients:
-                    s.send(glob_send) # send pickled model to all connected clients
+                    client.send(glob_send) # send pickled model to all connected clients
 
-                i = len(self.clients)
-                while i > 0:
+                for client in self.clients: # Need timeout to test disconnection
                     clientID = self.client_IDs[client]
                     print("Getting local model from client {}".format(clientID))
-                    mess_recv = client.recv(65536) # client model # do we need to know size of model beforehand?
+                    mess_recv = client.recv(65536) # client model
                     client_model = pickle.loads(mess_recv)
                     self.client_models[client] = copy.deepcopy(client_model) # overwrite existing client model
-                    i -= 1
+
 
                 print("Aggregating new global model")
-                global_model = aggregate_parameters(global_model, self.global_train_size, self.client_models)
+                global_model = self.aggregate_parameters(global_model, self.global_train_size, self.client_models)
                 print("Broadcasting new global model")
 
                 # need additional thread to listen for new clients here
@@ -102,10 +111,13 @@ class Server():
                     global_parameter.data = global_parameter.data + client_parameter.data.clone() * client_model.train_samples / global_train_size
         elif SUB_CLIENTS == 1:
             # randomly select two clients to sample
-            x = random.sample([range(0, len(self.clients))], 2)
-            sample_clients = [self.client_models[x[0]], self.client_models[x[1]]]
+            x = random.sample([range(0, len(client_models))], 2)
+            sample_clients = [client_models[x[0]], client_models[x[1]]]
             for client_model in sample_clients:
                 for global_parameter, client_parameter in zip(global_model.parameters(), client_model.parameters()):
                     global_parameter.data = global_parameter.data + client_parameter.data.clone() * client_model.train_samples / global_train_size
 
         return global_model
+
+server = Server()
+server.run()
