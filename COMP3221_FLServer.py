@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 
-PORT_HOST = sys.argv[1]
+PORT_HOST = int(sys.argv[1])
 SUB_CLIENTS = int(sys.argv[2])
 IP = "127.0.0.1"
 
@@ -29,6 +29,7 @@ class MCLR(nn.Module):
         output = F.log_softmax(x, dim=1)
         return output
 
+
 class ClientThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
@@ -37,7 +38,6 @@ class ClientThread(threading.Thread):
 
     def stop(self):
         self._stop.set()
-
 
 
 class Server():
@@ -118,6 +118,7 @@ class Server():
                     global_parameter.data = global_parameter.data + client_parameter.data.clone() * client_model.train_samples / global_train_size
 
         return global_model
+
 
 server = Server()
 server.run()
