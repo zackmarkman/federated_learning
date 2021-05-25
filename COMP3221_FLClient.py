@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-CLIENT_ID = sys.argv[1]
+CLIENT_ID = sys.argv[1][-1]
 PORT_CLIENT = int(sys.argv[2])
 OPT_FLAG = int(sys.argv[3])
 IP = "127.0.0.1"
@@ -58,7 +58,7 @@ class MCLR(nn.Module):
 
 
 class Client():
-    def __init__(self, client_id, model, learning_rate, batch_size):
+    def __init__(self, client_id, learning_rate, batch_size):
         # load data
         self.X_train, self.y_train, self.X_test, self.y_test, self.train_samples, self.test_samples = get_data(
             client_id)
@@ -67,9 +67,7 @@ class Client():
         self.trainloader = DataLoader(self.train_data, batch_size)
         self.testloader = DataLoader(self.test_data, self.test_samples)
         self.loss = nn.NLLLoss()
-        self.model = copy.deepcopy(model)
         self.id = client_id
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate)
 
     def set_parameters(self, model):
         for old_param, new_param in zip(self.model.parameters(), model.parameters()):
@@ -94,11 +92,8 @@ class Client():
         for x, y in self.testloader:
             output = self.model(x)
             test_acc += (torch.sum(torch.argmax(output, dim=1) == y) * 1. / y.shape[0]).item()
-            print(str(self.id) + ", Accuracy of client ", self.id, " is: ", test_acc)
+            #print(str(self.id) + ", Accuracy of client ", self.id, " is: ", test_acc)
         return test_acc
-
-    def send_local_model(self):
-        return
 
     def run(self):
         # connect to server
@@ -108,5 +103,21 @@ class Client():
             mess = pickle.dumps(message)
             s.sendall(mess)
             while (True):
+                print("I am client", self.id)
+                print("Receiving new global model")
                 data_recv = s.recv(65536)
+                global_model = pickle.loads(data_recv)
+                self.model = copy.deepcopy(global_model)
+                self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate)
+                train_loss = self.train(2)
+                print("Training loss: {:.2f}".format(train_loss.item()))
+                test_accuracy = self.test()
+                print("Testing accuracy: {}%".format(int(test_accuracy*100)))
+                print("Local training...")
+                model_send = pickle.dumps(self.model)
+                #s.sendall(model_send)
+                print("Sending new local model")
 
+
+client = Client(CLIENT_ID,learning_rate,batch_size)
+client.run()

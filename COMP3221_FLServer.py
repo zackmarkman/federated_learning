@@ -59,6 +59,7 @@ class Server():
             print("Server host names: ", IP, "Port: ", PORT_HOST)
             s.bind((IP, PORT_HOST))
             s.listen(5)
+            s.settimeout(30) # timeout
 
             # Initiate model
             global_model = MCLR()
@@ -66,14 +67,19 @@ class Server():
 
             # initialise server and clients
             while time.time() - t_start < 30:
-                # Establish connection from client
-                client, addr = s.accept()
-                self.clients.add(client)
-                mess_recv = client.recv(65536) # clientID and train size # do we need to know size of model beforehand?
-                clientID, client_train_size = pickle.loads(mess_recv) # receive via byte stream as only file id and train size
-                self.client_IDs[client] = clientID
-                self.global_train_size += client_train_size
-                self.num_connected = len(self.clients)
+                try:
+                    # Establish connection from client
+                    client, addr = s.accept()
+                    self.clients.add(client)
+                    mess_recv = client.recv(65536) # clientID and train size # do we need to know size of model beforehand?
+                    clientID, client_train_size = pickle.loads(mess_recv) # receive via byte stream as only file id and train size
+                    self.client_IDs[client] = clientID
+                    self.global_train_size += client_train_size
+                    self.num_connected = len(self.clients)
+                    #print(clientID)
+                    #print(self.global_train_size)
+                except socket.timeout:
+                    break
 
             # run server
             for i in range(self.num_iters):
