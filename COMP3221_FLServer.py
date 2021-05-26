@@ -57,7 +57,7 @@ class Server():
         global_model = MCLR()
         t_start = time.time()
 
-        # initialise server and clients
+        # Initialise server and clients
         client, addr = self.host_socket.accept()
         client.settimeout(10)
         mess_recv = client.recv(65536)
@@ -126,6 +126,7 @@ class Server():
             print("Broadcasting new global model")
 
             client_lock.release()
+
         # Generate plot here
 
         self.host_socket.close()
@@ -150,7 +151,6 @@ class Server():
 
         return global_model
 
-
     def evaluate(self, client_losses, client_accuracies):
         total_loss = 0
         total_accurancy = 0
@@ -158,7 +158,6 @@ class Server():
             total_loss += client_losses[i]
             total_accurancy += client_accuracies[i]
         return total_loss/len(client_losses), total_accurancy/len(client_accuracies)
-
 
     def remove_clients(self, disconnections):
         for client in disconnections:
@@ -189,6 +188,7 @@ class ClientConnector(threading.Thread):
 
     def stop(self):
         self._stop.set()
+
 
 client_lock = threading.Lock()
 server = Server()

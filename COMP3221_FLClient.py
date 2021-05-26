@@ -12,11 +12,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
+
 CLIENT_ID = sys.argv[1][-1]
 PORT_CLIENT = int(sys.argv[2])
 OPT_FLAG = int(sys.argv[3])
 IP = "127.0.0.1"
 PORT_SERVER = 6000
+
 
 # Tuneable parameters
 learning_rate = 0.01
@@ -110,8 +112,6 @@ class Client():
             while (comm_round < 101):
                 print("I am client", self.id)
                 print("Receiving new global model")
-
-
                 data_recv = s.recv(65536)
                 global_model, comm_round = pickle.loads(data_recv)
                 self.model = copy.deepcopy(global_model)
