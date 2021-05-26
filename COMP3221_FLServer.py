@@ -84,7 +84,7 @@ class Server():
                     break
 
             # run server
-            for i in range(1, self.num_iters+1):
+            for i in range(1, self.num_iters + 1):
                 print("Global iteration {}:".format(i))
                 print("Total number of clients:", len(self.clients))
                 glob_send = pickle.dumps((global_model, i)) # byte stream
@@ -104,7 +104,7 @@ class Server():
                         mess_recv = client.recv(65536) # client model
                         clientID = self.client_IDs[client]
                         print("Getting local model from client {}".format(clientID))
-                        client_model,client_train_loss,client_test_acc = pickle.loads(mess_recv)
+                        client_model, client_train_loss, client_test_acc = pickle.loads(mess_recv)
                         self.client_models[client] = copy.deepcopy(client_model) # overwrite existing client model
                         client_losses.append(client_train_loss)
                         client_acc.append(client_test_acc)
@@ -115,19 +115,15 @@ class Server():
                 print("Aggregating new global model\n")
                 global_model = self.aggregate_parameters(global_model, self.global_train_size,
                                                          self.client_models, self.client_train_sizes)
-                avg_loss, avg_acc = self.evaluate(client_losses,client_acc)
+                avg_loss, avg_acc = self.evaluate(client_losses, client_acc)
 
                 self.evaluation_log.write("Communication round {}\n".format(i))
                 self.evaluation_log.write("Average training loss: {}\n".format(avg_loss))
-                self.evaluation_log.write("Average testing accuracy: {}%\n".format(avg_acc*100))
+                self.evaluation_log.write("Average testing accuracy: {}%\n".format(avg_acc * 100))
 
                 print("Broadcasting new global model")
 
-
-
-                # need additional thread to listen for new clients here
-                # add them to client_models and broadcast new global model in the next iteration
-
+                # need multi thread to listen for and add new clients
 
     def aggregate_parameters(self, global_model, global_train_size, client_models, client_sizes):
         # clear gobal model
