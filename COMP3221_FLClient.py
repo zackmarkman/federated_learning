@@ -127,6 +127,7 @@ class Client():
                 self.log_file.write("Communication round {}\n".format(comm_round))
                 self.log_file.write("Training loss: {}\n".format(train_loss.item()))
                 self.log_file.write("Testing accuracy: {}%\n".format(test_accuracy * 100))
+                self.log_file.flush()
                 comm_round += 1
 
             self.log_file.close()

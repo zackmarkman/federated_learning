@@ -30,16 +30,6 @@ class MCLR(nn.Module):
         return output
 
 
-class ClientThread(threading.Thread):
-    def __init__(self):
-        threading.Thread.__init__(self)
-    def run(self):
-        pass
-
-    def stop(self):
-        self._stop.set()
-
-
 class Server():
     def __init__(self, *args):
         self.args = args
@@ -52,76 +42,95 @@ class Server():
         self.client_models = {} # Client socket object : client local model
         self.client_train_sizes = {} # Client socket object : client train size
         self.evaluation_log = open("evaluation_log.txt", "w+")
+        self.host_socket = None
 
     def run(self):
         # Create a new socket
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:  # created a socket object
-            print("Server start")
-            print("Server host names: ", IP, "Port: ", PORT_HOST)
-            s.bind((IP, PORT_HOST))
-            s.listen(5)
-            s.settimeout(30) # timeout
+        self.host_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print("Server start")
+        print("Server host names: ", IP, "Port: ", PORT_HOST)
+        self.host_socket.bind((IP, PORT_HOST))
+        self.host_socket.listen(5)
+        self.host_socket.settimeout(30) # timeout
 
-            # Initiate model
-            global_model = MCLR()
-            t_start = time.time()
+        # Initiate model
+        global_model = MCLR()
+        t_start = time.time()
 
-            # initialise server and clients
-            while time.time() - t_start < 30:
+        # initialise server and clients
+        client, addr = self.host_socket.accept()
+        client.settimeout(10)
+        mess_recv = client.recv(65536)
+        clientID, client_train_size = pickle.loads(mess_recv)
+        self.clients.add(client)
+        self.client_IDs[client] = clientID
+        self.client_train_sizes[client] = client_train_size
+        self.global_train_size += client_train_size
+        while time.time() - t_start < 30:
+            try:
+                # Establish connection from client
+                client, addr = self.host_socket.accept()
+                client.settimeout(10)
+                mess_recv = client.recv(65536)
+                clientID, client_train_size = pickle.loads(mess_recv)
+                self.clients.add(client)
+                self.client_IDs[client] = clientID
+                self.client_train_sizes[client] = client_train_size
+                self.global_train_size += client_train_size
+            except: # error raised when anything times out
+                break
+
+        background_connector = ClientConnector(self)
+        background_connector.start()
+
+        # run server
+        for i in range(1, self.num_iters+1):
+            client_lock.acquire()
+            print("Global iteration {}:".format(i))
+            print("Total number of clients:", len(self.clients))
+            glob_send = pickle.dumps((global_model, i)) # byte stream
+            disconnections = set()
+
+            for client in self.clients:
                 try:
-                    # Establish connection from client
-                    client, addr = s.accept()
-                    client.settimeout(10)
-                    mess_recv = client.recv(65536)
-                    clientID, client_train_size = pickle.loads(mess_recv)
-                    self.clients.add(client)
-                    self.client_IDs[client] = clientID
-                    self.client_train_sizes[client] = client_train_size
-                    self.global_train_size += client_train_size
-                except: # error raised when anything timesout
-                    break
+                    client.send(glob_send) # send pickled model to all connected clients
+                except:
+                    disconnections.add(client)
+            self.remove_clients(disconnections)
 
-            # run server
-            for i in range(1, self.num_iters + 1):
-                print("Global iteration {}:".format(i))
-                print("Total number of clients:", len(self.clients))
-                glob_send = pickle.dumps((global_model, i)) # byte stream
-                disconnections = set()
+            client_losses = []
+            client_acc = []
+            for client in self.clients: # Need timeout to test disconnection
+                try:
+                    mess_recv = client.recv(65536) # client model
+                    clientID = self.client_IDs[client]
+                    print("Getting local model from client {}".format(clientID))
+                    client_model,client_train_loss,client_test_acc = pickle.loads(mess_recv)
+                    self.client_models[client] = copy.deepcopy(client_model) # overwrite existing client model
+                    client_losses.append(client_train_loss)
+                    client_acc.append(client_test_acc)
+                except:
+                    disconnections.add(client)
+            self.remove_clients(disconnections)
 
-                for client in self.clients:
-                    try:
-                        client.send(glob_send) # send pickled model to all connected clients
-                    except:
-                        disconnections.add(client)
-                self.remove_clients(disconnections)
+            print("Aggregating new global model\n")
+            global_model = self.aggregate_parameters(global_model, self.global_train_size,
+                                                     self.client_models, self.client_train_sizes)
+            avg_loss, avg_acc = self.evaluate(client_losses,client_acc)
 
-                client_losses = []
-                client_acc = []
-                for client in self.clients:
-                    try:
-                        mess_recv = client.recv(65536) # client model
-                        clientID = self.client_IDs[client]
-                        print("Getting local model from client {}".format(clientID))
-                        client_model, client_train_loss, client_test_acc = pickle.loads(mess_recv)
-                        self.client_models[client] = copy.deepcopy(client_model) # overwrite existing client model
-                        client_losses.append(client_train_loss)
-                        client_acc.append(client_test_acc)
-                    except:
-                        disconnections.add(client)
-                self.remove_clients(disconnections)
+            self.evaluation_log.write("Communication round {}\n".format(i))
+            self.evaluation_log.write("Average training loss: {}\n".format(avg_loss))
+            self.evaluation_log.write("Average testing accuracy: {}%\n".format(avg_acc*100))
+            self.evaluation_log.flush()
 
-                print("Aggregating new global model\n")
-                global_model = self.aggregate_parameters(global_model, self.global_train_size,
-                                                         self.client_models, self.client_train_sizes)
-                avg_loss, avg_acc = self.evaluate(client_losses, client_acc)
+            print("Broadcasting new global model")
 
-                self.evaluation_log.write("Communication round {}\n".format(i))
-                self.evaluation_log.write("Average training loss: {}\n".format(avg_loss))
-                self.evaluation_log.write("Average testing accuracy: {}%\n".format(avg_acc * 100))
+            client_lock.release()
+        # Generate plot here
 
-                print("Broadcasting new global model")
+        self.host_socket.close()
+        self.evaluation_log.close()
 
-                # need multi thread to listen for and add new clients
 
     def aggregate_parameters(self, global_model, global_train_size, client_models, client_sizes):
         # clear gobal model
@@ -161,5 +170,26 @@ class Server():
                 del self.client_models[client]
 
 
+class ClientConnector(threading.Thread):
+    def __init__(self, server):
+        threading.Thread.__init__(self)
+        self.server = server
+    def run(self):
+        while True:
+            client, addr = server.host_socket.accept()
+            client_lock.acquire()
+            client.settimeout(10)
+            mess_recv = client.recv(65536)
+            clientID, client_train_size = pickle.loads(mess_recv)
+            server.clients.add(client)
+            server.client_IDs[client] = clientID
+            server.client_train_sizes[client] = client_train_size
+            server.global_train_size += client_train_size
+            client_lock.release()
+
+    def stop(self):
+        self._stop.set()
+
+client_lock = threading.Lock()
 server = Server()
 server.run()
