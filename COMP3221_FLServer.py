@@ -72,15 +72,13 @@ class Server():
                     # Establish connection from client
                     client, addr = s.accept()
                     client.settimeout(10)
-                    mess_recv = client.recv(65536) # clientID and train size # do we need to know size of model beforehand?
-                    clientID, client_train_size = pickle.loads(mess_recv) # receive via byte stream as only file id and train size
+                    mess_recv = client.recv(65536)
+                    clientID, client_train_size = pickle.loads(mess_recv)
                     self.clients.add(client)
                     self.client_IDs[client] = clientID
                     self.client_train_sizes[client] = client_train_size
                     self.global_train_size += client_train_size
-                    #print(clientID)
-                    #print(self.global_train_size)
-                except: # error raised when anything times out
+                except: # error raised when anything timesout
                     break
 
             # run server
@@ -99,7 +97,7 @@ class Server():
 
                 client_losses = []
                 client_acc = []
-                for client in self.clients: # Need timeout to test disconnection
+                for client in self.clients:
                     try:
                         mess_recv = client.recv(65536) # client model
                         clientID = self.client_IDs[client]
