@@ -64,10 +64,14 @@ class Client():
             client_id)
         self.train_data = [(x, y) for x, y in zip(self.X_train, self.y_train)]
         self.test_data = [(x, y) for x, y in zip(self.X_test, self.y_test)]
-        self.trainloader = DataLoader(self.train_data, batch_size)
+        if OPT_FLAG == 0:
+            self.trainloader = DataLoader(self.train_data, self.train_samples)
+        else:
+            self.trainloader = DataLoader(self.train_data, batch_size)
         self.testloader = DataLoader(self.test_data, self.test_samples)
         self.loss = nn.NLLLoss()
         self.id = client_id
+        self.log_file = open("client{}_log.txt".format(client_id),'w+')
 
     def set_parameters(self, model):
         for old_param, new_param in zip(self.model.parameters(), model.parameters()):
@@ -102,11 +106,14 @@ class Client():
             message = (CLIENT_ID, self.train_samples)
             mess = pickle.dumps(message)
             s.sendall(mess)
-            while (True):
+            comm_round = 1
+            while (comm_round < 101):
                 print("I am client", self.id)
                 print("Receiving new global model")
+
+
                 data_recv = s.recv(65536)
-                global_model = pickle.loads(data_recv)
+                global_model, comm_round = pickle.loads(data_recv)
                 self.model = copy.deepcopy(global_model)
                 self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate)
                 train_loss = self.train(2)
@@ -114,9 +121,15 @@ class Client():
                 test_accuracy = self.test()
                 print("Testing accuracy: {}%".format(int(test_accuracy*100)))
                 print("Local training...")
-                model_send = pickle.dumps(self.model)
-                #s.sendall(model_send)
-                print("Sending new local model")
+                model_send = pickle.dumps((self.model,train_loss.item(),test_accuracy))
+                s.sendall(model_send)
+                print("Sending new local model\n")
+                self.log_file.write("Communication round {}\n".format(comm_round))
+                self.log_file.write("Training loss: {}\n".format(train_loss.item()))
+                self.log_file.write("Testing accuracy: {}%\n".format(test_accuracy*100))
+                comm_round += 1
+
+            self.log_file.close()
 
 
 client = Client(CLIENT_ID,learning_rate,batch_size)

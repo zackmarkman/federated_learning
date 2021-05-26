@@ -45,12 +45,13 @@ class Server():
         self.args = args
         self.clients = set() # List of clients
         self.num_iters = 100
-        self.loss = []
-        self.accuracy = []
-        self.global_train_size = 0
-        self.client_IDs = {}
-        self.client_models = {}
-        self.num_connected = 0
+        self.loss = [] # Avg loss for each iteration for plotting
+        self.accuracy = [] # Avg accuracy for each iteration for plotting
+        self.global_train_size = 0 # Initial total train size
+        self.client_IDs = {} # Client socket object : client ID integer
+        self.client_models = {} # Client socket object : client local model
+        self.client_train_sizes = {} # Client socket object : client train size
+        self.evaluation_log = open("evaluation_log.txt", "w+")
 
     def run(self):
         # Create a new socket
@@ -70,60 +71,100 @@ class Server():
                 try:
                     # Establish connection from client
                     client, addr = s.accept()
-                    self.clients.add(client)
+                    client.settimeout(10)
                     mess_recv = client.recv(65536) # clientID and train size # do we need to know size of model beforehand?
                     clientID, client_train_size = pickle.loads(mess_recv) # receive via byte stream as only file id and train size
+                    self.clients.add(client)
                     self.client_IDs[client] = clientID
+                    self.client_train_sizes[client] = client_train_size
                     self.global_train_size += client_train_size
-                    self.num_connected = len(self.clients)
                     #print(clientID)
                     #print(self.global_train_size)
-                except socket.timeout:
+                except: # error raised when anything times out
                     break
 
             # run server
-            for i in range(self.num_iters):
+            for i in range(1, self.num_iters+1):
                 print("Global iteration {}:".format(i))
-                print("Total number of clients:", self.num_connected)
-                glob_send = pickle.dumps(global_model) # byte stream
+                print("Total number of clients:", len(self.clients))
+                glob_send = pickle.dumps((global_model, i)) # byte stream
+                disconnections = set()
 
                 for client in self.clients:
-                    client.send(glob_send) # send pickled model to all connected clients
+                    try:
+                        client.send(glob_send) # send pickled model to all connected clients
+                    except:
+                        disconnections.add(client)
+                self.remove_clients(disconnections)
 
+                client_losses = []
+                client_acc = []
                 for client in self.clients: # Need timeout to test disconnection
-                    clientID = self.client_IDs[client]
-                    print("Getting local model from client {}".format(clientID))
-                    mess_recv = client.recv(65536) # client model
-                    client_model = pickle.loads(mess_recv)
-                    self.client_models[client] = copy.deepcopy(client_model) # overwrite existing client model
+                    try:
+                        mess_recv = client.recv(65536) # client model
+                        clientID = self.client_IDs[client]
+                        print("Getting local model from client {}".format(clientID))
+                        client_model,client_train_loss,client_test_acc = pickle.loads(mess_recv)
+                        self.client_models[client] = copy.deepcopy(client_model) # overwrite existing client model
+                        client_losses.append(client_train_loss)
+                        client_acc.append(client_test_acc)
+                    except:
+                        disconnections.add(client)
+                self.remove_clients(disconnections)
 
+                print("Aggregating new global model\n")
+                global_model = self.aggregate_parameters(global_model, self.global_train_size,
+                                                         self.client_models, self.client_train_sizes)
+                avg_loss, avg_acc = self.evaluate(client_losses,client_acc)
 
-                print("Aggregating new global model")
-                global_model = self.aggregate_parameters(global_model, self.global_train_size, self.client_models)
+                self.evaluation_log.write("Communication round {}\n".format(i))
+                self.evaluation_log.write("Average training loss: {}\n".format(avg_loss))
+                self.evaluation_log.write("Average testing accuracy: {}%\n".format(avg_acc*100))
+
                 print("Broadcasting new global model")
+
+
 
                 # need additional thread to listen for new clients here
                 # add them to client_models and broadcast new global model in the next iteration
 
-    def aggregate_parameters(global_model, global_train_size, client_models):
+
+    def aggregate_parameters(self, global_model, global_train_size, client_models, client_sizes):
         # clear gobal model
         for parameter in global_model.parameters():
             parameter.data = torch.zeros_like(parameter.data)
 
         # aggregate models
         if SUB_CLIENTS == 0:
-            for client_model in client_models:
-                for global_parameter, client_parameter in zip(global_model.parameters(), client_model.parameters()):
-                    global_parameter.data = global_parameter.data + client_parameter.data.clone() * client_model.train_samples / global_train_size
-        elif SUB_CLIENTS == 1:
+            sample_clients = client_models
+        else:
             # randomly select two clients to sample
-            x = random.sample([range(0, len(client_models))], 2)
-            sample_clients = [client_models[x[0]], client_models[x[1]]]
-            for client_model in sample_clients:
-                for global_parameter, client_parameter in zip(global_model.parameters(), client_model.parameters()):
-                    global_parameter.data = global_parameter.data + client_parameter.data.clone() * client_model.train_samples / global_train_size
+            sample_clients = random.sample(client_models.keys(), 2)
+
+        for client_socket in sample_clients:
+            for global_parameter, client_parameter in zip(global_model.parameters(), client_models[client_socket].parameters()):
+                global_parameter.data = global_parameter.data + client_parameter.data.clone() * client_sizes[client_socket] / global_train_size
 
         return global_model
+
+
+    def evaluate(self, client_losses, client_accuracies):
+        total_loss = 0
+        total_accurancy = 0
+        for i in range(len(client_losses)):
+            total_loss += client_losses[i]
+            total_accurancy += client_accuracies[i]
+        return total_loss/len(client_losses), total_accurancy/len(client_accuracies)
+
+
+    def remove_clients(self, disconnections):
+        for client in disconnections:
+            self.clients.discard(client)
+            del self.client_IDs[client]
+            self.global_train_size -= self.client_train_sizes[client]
+            del self.client_train_sizes[client]
+            if client in self.client_models:
+                del self.client_models[client]
 
 
 server = Server()
