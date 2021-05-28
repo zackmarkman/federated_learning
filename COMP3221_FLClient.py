@@ -22,7 +22,8 @@ PORT_SERVER = 6000
 
 # Tuneable parameters
 learning_rate = 0.01
-batch_size = 20
+batch_size = 128
+epochs = 5
 
 
 def get_data(id=""):
@@ -68,11 +69,15 @@ class Client():
         self.test_data = [(x, y) for x, y in zip(self.X_test, self.y_test)]
         if OPT_FLAG == 0:
             self.trainloader = DataLoader(self.train_data, self.train_samples)
+            print("Batch size:",self.train_samples,'\n')
         else:
             self.trainloader = DataLoader(self.train_data, batch_size)
+            print("Batch size:", batch_size,'\n')
         self.testloader = DataLoader(self.test_data, self.test_samples)
         self.loss = nn.NLLLoss()
         self.id = client_id
+        self.model = MCLR()
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate)
         self.log_file = open("client{}_log.txt".format(client_id),'w+')
 
     def set_parameters(self, model):
@@ -80,17 +85,14 @@ class Client():
             old_param.data = new_param.data.clone()
 
     def train(self, epochs):
-        LOSS = 0
         self.model.train()
         for epoch in range(1, epochs + 1):
-            self.model.train()
             for batch_idx, (X, y) in enumerate(self.trainloader):
                 self.optimizer.zero_grad()
                 output = self.model(X)
                 loss = self.loss(output, y)
                 loss.backward()
                 self.optimizer.step()
-        return loss.data
 
     def test(self):
         self.model.eval()
@@ -111,26 +113,35 @@ class Client():
             comm_round = 1
             while (comm_round < 101):
                 print("I am client", self.id)
-                print("Receiving new global model")
                 data_recv = s.recv(65536)
+                print("Receiving new global model")
                 global_model, comm_round = pickle.loads(data_recv)
-                self.model = copy.deepcopy(global_model)
-                self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate)
-                train_loss = self.train(2)
-                print("Training loss: {:.2f}".format(train_loss.item()))
+                self.set_parameters(global_model)
+
+                loss = 0
+                for image, label in DataLoader(self.train_data, self.train_samples):
+                    output = self.model(image)
+                    loss += self.loss(output, label)
+                print("Training loss: {:.2f}".format(loss.item()))
+
                 test_accuracy = self.test()
                 print("Testing accuracy: {}%".format(int(test_accuracy * 100)))
+
                 print("Local training...")
-                model_send = pickle.dumps((self.model,train_loss.item(),test_accuracy))
-                s.sendall(model_send)
+                self.train(epochs)
+
                 print("Sending new local model\n")
+                model_send = pickle.dumps((self.model,loss.item(),test_accuracy))
+                s.sendall(model_send)
+
                 self.log_file.write("Communication round {}\n".format(comm_round))
-                self.log_file.write("Training loss: {}\n".format(train_loss.item()))
+                self.log_file.write("Training loss: {}\n".format(loss.item()))
                 self.log_file.write("Testing accuracy: {}%\n".format(test_accuracy * 100))
                 self.log_file.flush()
                 comm_round += 1
 
             self.log_file.close()
+
 
 
 client = Client(CLIENT_ID,learning_rate,batch_size)
