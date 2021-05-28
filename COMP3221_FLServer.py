@@ -17,8 +17,8 @@ SUB_CLIENTS = int(sys.argv[2])
 IP = "127.0.0.1"
 
 # Tunable parameters
-ITERATION_ROUNDS = 100
-SUBCLIENTS_NUMBER = 4
+GLOBAL_ROUNDS = 100
+SUBCLIENTS_NUMBER = 2
 
 
 class MCLR(nn.Module):
@@ -74,7 +74,7 @@ class Server():
         time.sleep(30)
 
         # run server
-        for i in range(1, ITERATION_ROUNDS+1):
+        for i in range(1, GLOBAL_ROUNDS+1):
             client_lock.acquire()
             print("Global iteration {}:".format(i))
             print("Total number of clients:", len(self.clients))

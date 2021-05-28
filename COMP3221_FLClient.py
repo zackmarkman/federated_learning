@@ -16,9 +16,9 @@ IP = "127.0.0.1"
 PORT_SERVER = 6000
 
 # Tunable parameters
-learning_rate = 0.01
-batch_size = 128
-epochs = 5
+LEARNING_RATE = 0.01
+BATCH_SIZE = 5
+EPOCHS = 2
 
 
 def get_data(id=""):
@@ -56,24 +56,23 @@ class MCLR(nn.Module):
 
 
 class Client():
-    def __init__(self, client_id, learning_rate, batch_size):
+    def __init__(self):
         # load data
-        self.X_train, self.y_train, self.X_test, self.y_test, self.train_samples, self.test_samples = get_data(client_id)
+        self.X_train, self.y_train, self.X_test, self.y_test, self.train_samples, self.test_samples = get_data(CLIENT_ID)
         self.train_data = [(x, y) for x, y in zip(self.X_train, self.y_train)]
         self.test_data = [(x, y) for x, y in zip(self.X_test, self.y_test)]
         if OPT_FLAG == 0:
             self.trainloader = DataLoader(self.train_data, self.train_samples)
             print("Batch size:",self.train_samples,'\n')
         else:
-            self.trainloader = DataLoader(self.train_data, batch_size)
-            print("Batch size:", batch_size,'\n')
+            self.trainloader = DataLoader(self.train_data, BATCH_SIZE)
+            print("Batch size:", BATCH_SIZE,'\n')
         self.evalloader = DataLoader(self.train_data, self.train_samples)
         self.testloader = DataLoader(self.test_data, self.test_samples)
         self.loss = nn.NLLLoss()
-        self.id = client_id
         self.model = MCLR()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate)
-        self.log_file = open("client{}_log.txt".format(client_id),'w+')
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr = LEARNING_RATE)
+        self.log_file = open("client{}_log.txt".format(CLIENT_ID),'w+')
 
     def set_parameters(self, model):
         for old_param, new_param in zip(self.model.parameters(), model.parameters()):
@@ -115,7 +114,7 @@ class Client():
             s.sendall(mess)
             comm_round = 1
             while (comm_round < 101):
-                print("I am client", self.id)
+                print("I am client", CLIENT_ID)
                 data_recv = s.recv(65536)
                 print("Receiving new global model")
                 global_model, comm_round = pickle.loads(data_recv)
@@ -132,7 +131,7 @@ class Client():
 
                 # Train model on local data
                 print("Local training...")
-                self.train(epochs)
+                self.train(EPOCHS)
 
                 # Send local model, train loss and test accuracy to server
                 print("Sending new local model\n")
@@ -149,5 +148,5 @@ class Client():
             self.log_file.close()
 
 
-client = Client(CLIENT_ID,learning_rate,batch_size)
+client = Client()
 client.run()
