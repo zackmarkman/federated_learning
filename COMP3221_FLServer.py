@@ -1,8 +1,6 @@
 import copy
-import json
-import matplotlib
 import matplotlib.pyplot as plt
-import os
+import numpy as np
 import pickle
 import random
 import sys
@@ -12,12 +10,15 @@ import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 
 
 PORT_HOST = int(sys.argv[1])
 SUB_CLIENTS = int(sys.argv[2])
 IP = "127.0.0.1"
+
+# Tunable parameters
+ITERATION_ROUNDS = 100
+SUBCLIENTS_NUMBER = 4
 
 
 class MCLR(nn.Module):
@@ -36,7 +37,6 @@ class Server():
     def __init__(self, *args):
         self.args = args
         self.clients = [] # List of clients
-        self.num_iters = 100
         self.loss = [] # Avg loss for each iteration for plotting
         self.accuracy = [] # Avg accuracy for each iteration for plotting
         self.global_train_size = 0 # Initial total train size
@@ -70,11 +70,11 @@ class Server():
         background_connector = ClientConnector(self)
         background_connector.start()
 
-        # Wat for 30 seconds before running
+        # Wait for 30 seconds before running
         time.sleep(30)
 
         # run server
-        for i in range(1, self.num_iters+1):
+        for i in range(1, ITERATION_ROUNDS+1):
             client_lock.acquire()
             print("Global iteration {}:".format(i))
             print("Total number of clients:", len(self.clients))
@@ -163,9 +163,11 @@ class Server():
         plt.subplot(1, 2, 2)
         plt.plot(self.accuracy, label="FedAvg", linewidth=1)
         plt.legend(loc='lower right', prop={'size': 12}, ncol=2)
+        plt.yticks(np.arange(0.1, 1.01, 0.1))
         plt.ylabel('Testing Acc')
         plt.xlabel('Global rounds')
         plt.show()
+
 
     def aggregate_parameters(self, global_model, global_train_size, client_models, client_sizes):
         # clear gobal model
@@ -176,8 +178,8 @@ class Server():
         if SUB_CLIENTS == 0:
             sample_clients = client_models
         else:
-            # randomly select two clients to sample (or one if only one client connected)
-            sample_clients = random.sample(client_models.keys(), min(len(client_models),2))
+            # randomly select sub clients to sample
+            sample_clients = random.sample(client_models.keys(), min(len(client_models), SUBCLIENTS_NUMBER))
 
         for client_socket in sample_clients:
             for global_parameter, client_parameter in zip(global_model.parameters(), client_models[client_socket].parameters()):
