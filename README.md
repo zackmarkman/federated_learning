@@ -1,10 +1,23 @@
 # COMP3221 Federated Learning Assignment 2
-# This README file details how to run the server and x clients
+# This README file details how to run the server and K clients
 
-Run the server with "python COMP3221_FLServer.py <Port-server> <Sub-client>". Port-server should be set to 6000 and the Sub-client flag should be set to 0 or 1. 0 means M = K and the server will aggregate all client models, 1 means M = 2 and the server will only aggregate 2 client models over the population.
+Run the server with "python COMP3221_FLServer.py <Port-server> <Sub-client>".
+ - Port-server should be set to 6000
+ - Sub-client flag should be set to 0 or 1
+   - 0 means the server will aggregate all client models
+   - 1 means the server will aggregate 2 client models at random
 
-During startup, the server will wait 30 seconds for clients to initialise and connect via a handshake. To run a client, open a new terminal tab and run "python COMP3221_FLClient.py <Client-id> <Port-client> <Opt-method>". Client-id is an integer representing an id number, Port-client should start at 6001 and increment for each additional client and Opt-method is a flag to specify the local model (0 runs GD and 1 runs mini-batch GD).
+The server will wait 30 seconds for clients to initialise and connect before starting FedAvg and the 100 communication rounds.
 
-Once the 30 seconds has begun, the global communication rounds 1 through to 100 will start.
+Run a client with "python COMP3221_FLClient.py <Client-id> <Port-client> <Opt-method>"
+ - Client-id is the client number
+ - Port-client should start at 6001 and increment for each additional client
+ - Opt-method should be set to 0 or 1
+   - 0 runs the local model as gradient descent
+   - 1 runs the local mode as mini-batch gradient descent
 
-During this process, clients will write the training loss and testing accuracy every round to a local client{id}_log.txt file, as well as output this data to the terminal. The server will also aggregate all client data and write this to an evaluation_log.txt file only. The user can inspect these files once the server and models have run and shutdown.
+In each communication round, clients will write their training loss and testing accuracy a local client<id>_log.txt file.
+
+The server will also aggregate client model data and write this to an evaluation_log.txt file.
+
+If a client disconnects, it will not be included in the following round (unless it reconnects but restarting it)
