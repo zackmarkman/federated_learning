@@ -19,7 +19,7 @@ IP = "127.0.0.1"
 
 # Tunable parameters
 GLOBAL_ROUNDS = 100
-SUBCLIENTS_NUMBER = 5
+SUBCLIENTS_NUMBER = 2
 
 
 class MCLR(nn.Module):
@@ -152,13 +152,6 @@ class Server():
 
         self.host_socket.close()
         self.evaluation_log.close()
-        
-        lossfile = np.array(self.loss)
-        accfile = np.array(self.accuracy)
-
-        # [loss/acc]_subclients_batch
-        np.savetxt("loss_5_GD.csv", lossfile)
-        np.savetxt("accuracy_5_GD.csv", accfile)
 
         # Generate plot
         plt.figure(figsize=(8, 5))

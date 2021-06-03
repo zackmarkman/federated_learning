@@ -17,8 +17,11 @@ PORT_SERVER = 6000
 
 
 # Tunable parameters
-LEARNING_RATE = 0.1
-BATCH_SIZE = 20
+if OPT_FLAG == 0:
+    LEARNING_RATE = 0.5
+else:
+    LEARNING_RATE = 0.001
+BATCH_SIZE = 5
 EPOCHS = 2
 
 
