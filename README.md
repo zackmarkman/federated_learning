@@ -22,4 +22,4 @@ In each communication round, clients will write their training loss and testing 
 
 The server will also aggregate client model data and write this to an evaluation_log.txt file.
 
-If a client disconnects, it will not be included in the following round (unless it reconnects by restarting it)
+If a client disconnects, it will not be included in the following round. However, clients can reconnect to the server and will join the next communication round.
