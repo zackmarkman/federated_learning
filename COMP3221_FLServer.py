@@ -235,7 +235,6 @@ class ClientConnector(threading.Thread):
                 break
 
 
-
 client_lock = threading.Lock()
 server = Server()
 server.run()
