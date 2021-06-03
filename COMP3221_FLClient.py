@@ -16,9 +16,9 @@ IP = "127.0.0.1"
 PORT_SERVER = 6000
 
 # Tunable parameters
-LEARNING_RATE = 0.01
-BATCH_SIZE = 5
-EPOCHS = 2
+LEARNING_RATE = 0.1
+BATCH_SIZE = 20
+EPOCHS = 1
 
 
 def get_data(id=""):
@@ -149,4 +149,5 @@ class Client():
 
 
 client = Client()
+
 client.run()
