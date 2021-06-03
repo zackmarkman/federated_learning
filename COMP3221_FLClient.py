@@ -15,6 +15,7 @@ OPT_FLAG = int(sys.argv[3])
 IP = "127.0.0.1"
 PORT_SERVER = 6000
 
+
 # Tunable parameters
 LEARNING_RATE = 0.1
 BATCH_SIZE = 20
@@ -104,7 +105,6 @@ class Client():
             test_acc += (torch.sum(torch.argmax(output, dim=1) == label) * 1. / label.shape[0]).item()
         return test_acc
 
-
     def run(self):
         # connect to server
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -114,8 +114,8 @@ class Client():
             s.sendall(mess)
             comm_round = 1
             while (comm_round < 101):
-                print("I am client", CLIENT_ID)
                 data_recv = s.recv(65536)
+                print("I am client", CLIENT_ID)
                 print("Receiving new global model")
                 global_model, comm_round = pickle.loads(data_recv)
                 # Set parameters to global model

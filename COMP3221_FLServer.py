@@ -16,6 +16,7 @@ PORT_HOST = int(sys.argv[1])
 SUB_CLIENTS = int(sys.argv[2])
 IP = "127.0.0.1"
 
+
 # Tunable parameters
 GLOBAL_ROUNDS = 100
 SUBCLIENTS_NUMBER = 5
@@ -175,7 +176,6 @@ class Server():
         plt.xlabel('Global rounds')
         plt.show()
 
-
     def aggregate_parameters(self, global_model, global_train_size, client_models, client_sizes):
         # clear gobal model
         for parameter in global_model.parameters():
@@ -194,7 +194,6 @@ class Server():
 
         return global_model
 
-
     def evaluate(self, client_losses, client_accuracies):
         total_loss = 0
         total_accurancy = 0
@@ -202,7 +201,6 @@ class Server():
             total_loss += client_losses[i]
             total_accurancy += client_accuracies[i]
         return total_loss/len(client_losses), total_accurancy/len(client_accuracies)
-
 
     def remove_clients(self, disconnections):
         for client in disconnections:
@@ -212,7 +210,6 @@ class Server():
             del self.client_train_sizes[client]
             if client in self.client_models:
                 del self.client_models[client]
-
 
 
 class ClientConnector(threading.Thread):
