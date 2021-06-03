@@ -156,7 +156,7 @@ class Server():
         accfile = np.array(self.accuracy)
 
         # [loss/acc]_subclients_batch
-        np.savetxt("loss_5_GD.csv",lossfile)
+        np.savetxt("loss_5_GD.csv", lossfile)
         np.savetxt("accuracy_5_GD.csv", accfile)
 
         # Generate plot

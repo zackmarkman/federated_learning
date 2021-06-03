@@ -1,9 +1,7 @@
 # COMP3221 Federated Learning Assignment 2
 # This README file details how to run the server and K clients
 
-###############
 NOTE: we have run and tested our programs on both Linux and Mac environments. NOT Windows. To ensure consistency and no unforeseen errors, please run this assignment on only Linux or Mac.
-###############
 
 Run the server with "python COMP3221_FLServer.py <Port-server> <Sub-client>".
  - Port-server should be set to 6000
@@ -17,7 +15,7 @@ Run a client with "python COMP3221_FLClient.py <Client-id> <Port-client> <Opt-me
  - Opt-method should be set to 0 or 1
    - 0 runs the local model as gradient descent
    - 1 runs the local mode as mini-batch gradient descent
-   
+
 The server will then wait 30 seconds for more clients to initialise and connect before starting FedAvg and the 100 communication rounds.
 
 In each communication round, clients will write their training loss and testing accuracy a local client<id>_log.txt file.
