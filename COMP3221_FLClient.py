@@ -19,7 +19,7 @@ PORT_SERVER = 6000
 # Tunable parameters
 LEARNING_RATE = 0.1
 BATCH_SIZE = 20
-EPOCHS = 1
+EPOCHS = 2
 
 
 def get_data(id=""):

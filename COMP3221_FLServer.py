@@ -152,7 +152,7 @@ class Server():
 
         self.host_socket.close()
         self.evaluation_log.close()
-
+        
         lossfile = np.array(self.loss)
         accfile = np.array(self.accuracy)
 
