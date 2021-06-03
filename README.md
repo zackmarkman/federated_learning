@@ -1,7 +1,7 @@
 # COMP3221 Federated Learning Assignment 2
 # This README file details how to run the server and K clients
 
-NOTE: we have run and tested our programs on both Linux and Mac environments. NOT Windows. To ensure consistency and no unforeseen errors, please run this assignment on only Linux or Mac.
+NOTE: we have run and tested these programs on both Linux and Mac environments. Please use one of these and NOT Windows to ensure consistency and avoid unforeseen errors.
 
 Run the server with "python COMP3221_FLServer.py <Port-server> <Sub-client>".
  - Port-server should be set to 6000
